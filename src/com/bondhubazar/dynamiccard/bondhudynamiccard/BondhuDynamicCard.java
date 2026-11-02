@@ -101,7 +101,6 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
             RemoveCard(id);
         }
 
-        // Create a new horizontal row after every two cards.
         if (currentRow == null || cardsInRow >= 2) {
             currentRow = new LinearLayout(form);
             currentRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -125,7 +124,6 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
         card.setElevation(dp(4));
         card.setClipToOutline(true);
 
-        // Product image and favorite button.
         FrameLayout imageFrame = new FrameLayout(form);
 
         ImageView image = new ImageView(form);
@@ -145,37 +143,39 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
         heart.setElevation(dp(2));
 
         FrameLayout.LayoutParams heartParams =
-            new FrameLayout.LayoutParams(dp(42), dp(42), Gravity.RIGHT | Gravity.TOP);
+            new FrameLayout.LayoutParams(
+                dp(42), dp(42),
+                Gravity.RIGHT | Gravity.TOP
+            );
 
         imageFrame.addView(heart, heartParams);
-
         card.addView(imageFrame);
 
-        // Product name.
         TextView name = makeText(title, 19, Color.BLACK);
         name.setTypeface(null, Typeface.BOLD);
         name.setPadding(dp(2), dp(8), dp(2), dp(1));
         card.addView(name);
 
-        // Pack size.
         TextView packText = makeText(pack, 14, Color.GRAY);
         packText.setPadding(dp(2), dp(2), dp(2), dp(2));
         card.addView(packText);
 
-        // Product price.
-        TextView priceText = makeText(price, 20, Color.rgb(0, 125, 35));
+        TextView priceText = makeText(
+            price, 20, Color.rgb(0, 125, 35)
+        );
         priceText.setTypeface(null, Typeface.BOLD);
         priceText.setPadding(dp(2), dp(3), dp(2), dp(5));
         card.addView(priceText);
 
-        // Add to cart button.
         Button addButton = new Button(form);
         addButton.setText("ADD TO CART");
         addButton.setTextSize(14);
         addButton.setTextColor(Color.WHITE);
         addButton.setAllCaps(false);
         addButton.setTypeface(null, Typeface.BOLD);
-        addButton.setBackground(rounded(Color.rgb(0, 165, 225), 10));
+        addButton.setBackground(
+            rounded(Color.rgb(0, 165, 225), 10)
+        );
 
         LinearLayout.LayoutParams buttonParams =
             new LinearLayout.LayoutParams(
@@ -185,7 +185,6 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
 
         card.addView(addButton, buttonParams);
 
-        // Quantity control row.
         LinearLayout qtyRow = new LinearLayout(form);
         qtyRow.setOrientation(LinearLayout.HORIZONTAL);
         qtyRow.setGravity(Gravity.CENTER);
@@ -199,19 +198,25 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
 
         TextView qtyText = makeText("0", 20, Color.BLACK);
         qtyText.setGravity(Gravity.CENTER);
-        qtyText.setBackground(rounded(Color.rgb(225, 250, 230), 8));
+        qtyText.setBackground(
+            rounded(Color.rgb(225, 250, 230), 8)
+        );
 
         Button plus = new Button(form);
         plus.setText("+");
         plus.setTextSize(22);
         plus.setTextColor(Color.WHITE);
-        plus.setBackground(rounded(Color.rgb(0, 155, 35), 30));
+        plus.setBackground(
+            rounded(Color.rgb(0, 155, 35), 30)
+        );
 
         LinearLayout.LayoutParams controlParams =
             new LinearLayout.LayoutParams(dp(42), dp(42));
 
         LinearLayout.LayoutParams numberParams =
-            new LinearLayout.LayoutParams(0, dp(42), 1);
+            new LinearLayout.LayoutParams(
+                0, dp(42), 1
+            );
 
         numberParams.setMargins(dp(5), 0, dp(5), 0);
 
@@ -221,7 +226,6 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
 
         card.addView(qtyRow);
 
-        // Store card references.
         cards.put(id, card);
         titles.put(id, name);
         prices.put(id, priceText);
@@ -233,7 +237,6 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
         quantities.put(id, 0);
         favoriteStates.put(id, false);
 
-        // Favorite button.
         heart.setOnClickListener(v -> {
             boolean selected = !favoriteStates.get(id);
             favoriteStates.put(id, selected);
@@ -244,7 +247,6 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
             FavoriteChanged(id, selected);
         });
 
-        // Add to cart.
         addButton.setOnClickListener(v -> {
             quantities.put(id, 1);
             qtyText.setText("1");
@@ -256,7 +258,6 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
             QuantityChanged(id, 1);
         });
 
-        // Plus button.
         plus.setOnClickListener(v -> {
             int qty = quantities.get(id) + 1;
             quantities.put(id, qty);
@@ -265,7 +266,6 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
             QuantityChanged(id, qty);
         });
 
-        // Minus button.
         minus.setOnClickListener(v -> {
             int qty = quantities.get(id) - 1;
 
@@ -281,12 +281,10 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
             QuantityChanged(id, qty);
         });
 
-        // Card click.
         card.setOnClickListener(v -> {
             CardClicked(id);
         });
 
-        // Add card to the two-column row.
         LinearLayout.LayoutParams cardParams =
             new LinearLayout.LayoutParams(
                 0,
@@ -302,13 +300,14 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
         CardCreated(id);
     }
 
-    @SimpleFunction(description = "Set product image using an image URL.")
+    @SimpleFunction(description = "Set product image using URL.")
     public void SetImage(String id, String imageUrl) {
         View card = cards.get(id);
         if (card == null) return;
 
         ImageView image = (ImageView)
-            ((FrameLayout) ((LinearLayout) card).getChildAt(0)).getChildAt(0);
+            ((FrameLayout) ((LinearLayout) card).getChildAt(0))
+            .getChildAt(0);
 
         new Thread(() -> {
             HttpURLConnection connection = null;
@@ -329,10 +328,14 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
                     throw new Exception("Image could not be decoded");
                 }
 
-                form.runOnUiThread(() -> image.setImageBitmap(bitmap));
+                form.runOnUiThread(
+                    () -> image.setImageBitmap(bitmap)
+                );
 
             } catch (Exception e) {
-                form.runOnUiThread(() -> ImageError(id, e.getMessage()));
+                form.runOnUiThread(
+                    () -> ImageError(id, e.getMessage())
+                );
 
             } finally {
                 if (connection != null) {
@@ -431,18 +434,24 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
         EventDispatcher.dispatchEvent(this, "AddToCartClicked", id);
     }
 
-    @SimpleEvent(description = "Fires when product quantity changes.")
+    @SimpleEvent(description = "Fires when quantity changes.")
     public void QuantityChanged(String id, int quantity) {
-        EventDispatcher.dispatchEvent(this, "QuantityChanged", id, quantity);
+        EventDispatcher.dispatchEvent(
+            this, "QuantityChanged", id, quantity
+        );
     }
 
     @SimpleEvent(description = "Fires when favorite status changes.")
     public void FavoriteChanged(String id, boolean isFavorite) {
-        EventDispatcher.dispatchEvent(this, "FavoriteChanged", id, isFavorite);
+        EventDispatcher.dispatchEvent(
+            this, "FavoriteChanged", id, isFavorite
+        );
     }
 
-    @SimpleEvent(description = "Fires if product image loading fails.")
+    @SimpleEvent(description = "Fires if image loading fails.")
     public void ImageError(String id, String message) {
-        EventDispatcher.dispatchEvent(this, "ImageError", id, message);
+        EventDispatcher.dispatchEvent(
+            this, "ImageError", id, message
+        );
     }
 }
