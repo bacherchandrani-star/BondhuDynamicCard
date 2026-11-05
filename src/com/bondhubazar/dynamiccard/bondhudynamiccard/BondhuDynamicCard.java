@@ -15,22 +15,23 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Button;
 
-import com.google.appinventor.components.annotations.*;
-import com.google.appinventor.components.common.ComponentCategory;
-import com.google.appinventor.components.runtime.*;
+import com.google.appinventor.components.annotations.Extension;
+import com.google.appinventor.components.annotations.SimpleFunction;
+import com.google.appinventor.components.annotations.SimpleEvent;
+import com.google.appinventor.components.runtime.AndroidNonvisibleComponent;
+import com.google.appinventor.components.runtime.ComponentContainer;
+import com.google.appinventor.components.runtime.HVArrangement;
+import com.google.appinventor.components.runtime.Form;
+import com.google.appinventor.components.runtime.EventDispatcher;
 
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.HashMap;
 
-@DesignerComponent(
-    version = 2,
-    description = "Bondhu Bazar Two Column Product Cards with Cart and Favorites",
-    category = ComponentCategory.EXTENSION,
-    nonVisible = true,
-    iconName = "images/extension.png"
+@Extension(
+    description = "Bondhu Bazar Horizontal Product Cards with Cart and Favorites.",
+    icon = "icon.png"
 )
-@SimpleObject(external = true)
 public class BondhuDynamicCard extends AndroidNonvisibleComponent {
 
     private final Form form;
@@ -39,16 +40,14 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
     private final HashMap<String, TextView> titles = new HashMap<>();
     private final HashMap<String, TextView> prices = new HashMap<>();
     private final HashMap<String, TextView> packs = new HashMap<>();
-    private final HashMap<String, TextView> favorites = new HashMap<>();
+    private final HashMap<String, TextView> hearts = new HashMap<>();
+    private final HashMap<String, ImageView> images = new HashMap<>();
     private final HashMap<String, TextView> quantityLabels = new HashMap<>();
-    private final HashMap<String, View> addButtons = new HashMap<>();
-    private final HashMap<String, View> quantityRows = new HashMap<>();
+    private final HashMap<String, Button> addButtons = new HashMap<>();
+    private final HashMap<String, LinearLayout> quantityRows = new HashMap<>();
+
     private final HashMap<String, Integer> quantities = new HashMap<>();
     private final HashMap<String, Boolean> favoriteStates = new HashMap<>();
-
-    private ViewGroup gridParent;
-    private LinearLayout currentRow;
-    private int cardsInRow = 0;
 
     public BondhuDynamicCard(ComponentContainer container) {
         super(container.$form());
@@ -68,14 +67,14 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
     }
 
     private TextView makeText(String text, int size, int color) {
-        TextView v = new TextView(form);
-        v.setText(text);
-        v.setTextSize(size);
-        v.setTextColor(color);
-        return v;
+        TextView view = new TextView(form);
+        view.setText(text);
+        view.setTextSize(size);
+        view.setTextColor(color);
+        return view;
     }
 
-    @SimpleFunction(description = "Create a product card in a two-column grid.")
+    @SimpleFunction(description = "Create a horizontal product card.")
     public void CreateCard(
         HVArrangement parent,
         String id,
@@ -91,162 +90,198 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
 
         ViewGroup container = (ViewGroup) parentView;
 
-        if (gridParent != container) {
-            gridParent = container;
-            currentRow = null;
-            cardsInRow = 0;
-        }
-
         if (cards.containsKey(id)) {
             RemoveCard(id);
         }
 
-        if (currentRow == null || cardsInRow >= 2) {
-            currentRow = new LinearLayout(form);
-            currentRow.setOrientation(LinearLayout.HORIZONTAL);
-            currentRow.setGravity(Gravity.TOP);
-
-            LinearLayout.LayoutParams rowParams =
-                new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-                );
-
-            rowParams.setMargins(dp(6), dp(6), dp(6), dp(6));
-            container.addView(currentRow, rowParams);
-            cardsInRow = 0;
-        }
-
+        // Main card
         LinearLayout card = new LinearLayout(form);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(7), dp(7), dp(7), dp(8));
-        card.setBackground(rounded(Color.WHITE, 16));
+        card.setPadding(dp(10), dp(10), dp(10), dp(10));
+        card.setBackground(rounded(Color.WHITE, 18));
         card.setElevation(dp(4));
-        card.setClipToOutline(true);
 
-        FrameLayout imageFrame = new FrameLayout(form);
+        // Top horizontal section
+        LinearLayout top = new LinearLayout(form);
+        top.setOrientation(LinearLayout.HORIZONTAL);
+        top.setGravity(Gravity.CENTER_VERTICAL);
 
+        // Product image
         ImageView image = new ImageView(form);
         image.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        image.setBackground(rounded(Color.rgb(248, 248, 248), 14));
+        image.setClipToOutline(true);
 
-        FrameLayout.LayoutParams imageParams =
-            new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(145)
+        LinearLayout.LayoutParams imageParams =
+            new LinearLayout.LayoutParams(dp(112), dp(112));
+
+        top.addView(image, imageParams);
+
+        // Right side product details
+        LinearLayout details = new LinearLayout(form);
+        details.setOrientation(LinearLayout.VERTICAL);
+        details.setGravity(Gravity.CENTER_VERTICAL);
+        details.setPadding(dp(12), 0, 0, 0);
+
+        LinearLayout.LayoutParams detailsParams =
+            new LinearLayout.LayoutParams(
+                0,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                1
             );
 
-        imageFrame.addView(image, imageParams);
+        top.addView(details, detailsParams);
 
-        TextView heart = makeText("♡", 32, Color.RED);
-        heart.setGravity(Gravity.CENTER);
-        heart.setBackground(rounded(Color.WHITE, 30));
-        heart.setElevation(dp(2));
+        // Name and favorite row
+        LinearLayout nameRow = new LinearLayout(form);
+        nameRow.setOrientation(LinearLayout.HORIZONTAL);
+        nameRow.setGravity(Gravity.CENTER_VERTICAL);
 
-        FrameLayout.LayoutParams heartParams =
-            new FrameLayout.LayoutParams(
-                dp(42), dp(42),
-                Gravity.RIGHT | Gravity.TOP
-            );
-
-        imageFrame.addView(heart, heartParams);
-        card.addView(imageFrame);
-
-        TextView name = makeText(title, 19, Color.BLACK);
+        TextView name = makeText(title, 20, Color.BLACK);
         name.setTypeface(null, Typeface.BOLD);
-        name.setPadding(dp(2), dp(8), dp(2), dp(1));
-        card.addView(name);
+        name.setMaxLines(2);
 
-        TextView packText = makeText(pack, 14, Color.GRAY);
-        packText.setPadding(dp(2), dp(2), dp(2), dp(2));
-        card.addView(packText);
+        LinearLayout.LayoutParams nameParams =
+            new LinearLayout.LayoutParams(
+                0,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                1
+            );
 
-        TextView priceText = makeText(
-            price, 20, Color.rgb(0, 125, 35)
+        nameRow.addView(name, nameParams);
+
+        TextView heart = makeText("♡", 30, Color.RED);
+        heart.setGravity(Gravity.CENTER);
+
+        nameRow.addView(
+            heart,
+            new LinearLayout.LayoutParams(dp(38), dp(42))
         );
-        priceText.setTypeface(null, Typeface.BOLD);
-        priceText.setPadding(dp(2), dp(3), dp(2), dp(5));
-        card.addView(priceText);
 
+        details.addView(nameRow);
+
+        // Price
+        TextView priceText = makeText(
+            price, 24, Color.rgb(0, 120, 45)
+        );
+
+        priceText.setTypeface(null, Typeface.BOLD);
+        priceText.setPadding(0, dp(5), 0, dp(3));
+
+        details.addView(priceText);
+
+        // Pack size
+        TextView packText = makeText(
+            pack, 14, Color.rgb(35, 130, 75)
+        );
+
+        packText.setPadding(dp(8), dp(4), dp(8), dp(4));
+        packText.setBackground(
+            rounded(Color.rgb(225, 245, 232), 20)
+        );
+
+        details.addView(packText);
+
+        card.addView(top);
+
+        // Add to cart button
         Button addButton = new Button(form);
-        addButton.setText("ADD TO CART");
-        addButton.setTextSize(14);
+        addButton.setText("🛒  Add to Cart");
+        addButton.setTextSize(16);
         addButton.setTextColor(Color.WHITE);
         addButton.setAllCaps(false);
         addButton.setTypeface(null, Typeface.BOLD);
         addButton.setBackground(
-            rounded(Color.rgb(0, 165, 225), 10)
+            rounded(Color.rgb(20, 145, 55), 30)
         );
 
-        LinearLayout.LayoutParams buttonParams =
+        LinearLayout.LayoutParams addParams =
             new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(42)
+                dp(50)
             );
 
-        card.addView(addButton, buttonParams);
+        addParams.setMargins(0, dp(12), 0, 0);
+        card.addView(addButton, addParams);
 
+        // Quantity control
         LinearLayout qtyRow = new LinearLayout(form);
         qtyRow.setOrientation(LinearLayout.HORIZONTAL);
         qtyRow.setGravity(Gravity.CENTER);
+
         qtyRow.setVisibility(View.GONE);
 
         Button minus = new Button(form);
         minus.setText("−");
-        minus.setTextSize(22);
+        minus.setTextSize(24);
         minus.setTextColor(Color.WHITE);
         minus.setBackground(rounded(Color.RED, 30));
 
-        TextView qtyText = makeText("0", 20, Color.BLACK);
+        TextView qtyText = makeText("1", 21, Color.BLACK);
         qtyText.setGravity(Gravity.CENTER);
         qtyText.setBackground(
-            rounded(Color.rgb(225, 250, 230), 8)
+            rounded(Color.rgb(225, 250, 230), 12)
         );
 
         Button plus = new Button(form);
         plus.setText("+");
-        plus.setTextSize(22);
+        plus.setTextSize(24);
         plus.setTextColor(Color.WHITE);
         plus.setBackground(
-            rounded(Color.rgb(0, 155, 35), 30)
+            rounded(Color.rgb(0, 150, 45), 30)
         );
 
         LinearLayout.LayoutParams controlParams =
-            new LinearLayout.LayoutParams(dp(42), dp(42));
+            new LinearLayout.LayoutParams(
+                0, dp(48), 1
+            );
 
         LinearLayout.LayoutParams numberParams =
             new LinearLayout.LayoutParams(
-                0, dp(42), 1
+                0, dp(48), 2
             );
 
-        numberParams.setMargins(dp(5), 0, dp(5), 0);
+        numberParams.setMargins(dp(12), 0, dp(12), 0);
 
         qtyRow.addView(minus, controlParams);
         qtyRow.addView(qtyText, numberParams);
         qtyRow.addView(plus, controlParams);
 
-        card.addView(qtyRow);
+        LinearLayout.LayoutParams qtyParams =
+            new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(50)
+            );
 
+        qtyParams.setMargins(0, dp(12), 0, 0);
+
+        card.addView(qtyRow, qtyParams);
+
+        // Save references
         cards.put(id, card);
         titles.put(id, name);
         prices.put(id, priceText);
         packs.put(id, packText);
-        favorites.put(id, heart);
+        hearts.put(id, heart);
+        images.put(id, image);
         quantityLabels.put(id, qtyText);
         addButtons.put(id, addButton);
         quantityRows.put(id, qtyRow);
+
         quantities.put(id, 0);
         favoriteStates.put(id, false);
 
+        // Favorite click
         heart.setOnClickListener(v -> {
             boolean selected = !favoriteStates.get(id);
-            favoriteStates.put(id, selected);
 
+            favoriteStates.put(id, selected);
             heart.setText(selected ? "♥" : "♡");
-            heart.setTextColor(Color.RED);
 
             FavoriteChanged(id, selected);
         });
 
+        // Add to cart
         addButton.setOnClickListener(v -> {
             quantities.put(id, 1);
             qtyText.setText("1");
@@ -258,14 +293,17 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
             QuantityChanged(id, 1);
         });
 
+        // Plus
         plus.setOnClickListener(v -> {
             int qty = quantities.get(id) + 1;
+
             quantities.put(id, qty);
             qtyText.setText(String.valueOf(qty));
 
             QuantityChanged(id, qty);
         });
 
+        // Minus
         minus.setOnClickListener(v -> {
             int qty = quantities.get(id) - 1;
 
@@ -281,33 +319,27 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
             QuantityChanged(id, qty);
         });
 
-        card.setOnClickListener(v -> {
-            CardClicked(id);
-        });
-
+        // Add card to parent
         LinearLayout.LayoutParams cardParams =
             new LinearLayout.LayoutParams(
-                0,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                1.0f
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
             );
 
-        cardParams.setMargins(dp(4), dp(3), dp(4), dp(3));
-        currentRow.addView(card, cardParams);
+        cardParams.setMargins(dp(5), dp(7), dp(5), dp(7));
 
-        cardsInRow++;
+        container.addView(card, cardParams);
 
         CardCreated(id);
     }
 
     @SimpleFunction(description = "Set product image using URL.")
     public void SetImage(String id, String imageUrl) {
-        View card = cards.get(id);
-        if (card == null) return;
+        ImageView image = images.get(id);
 
-        ImageView image = (ImageView)
-            ((FrameLayout) ((LinearLayout) card).getChildAt(0))
-            .getChildAt(0);
+        if (image == null) {
+            return;
+        }
 
         new Thread(() -> {
             HttpURLConnection connection = null;
@@ -315,6 +347,7 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
             try {
                 URL url = new URL(imageUrl);
                 connection = (HttpURLConnection) url.openConnection();
+
                 connection.setConnectTimeout(10000);
                 connection.setReadTimeout(10000);
                 connection.setDoInput(true);
@@ -325,17 +358,17 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
                 );
 
                 if (bitmap == null) {
-                    throw new Exception("Image could not be decoded");
+                    throw new Exception("Invalid image");
                 }
 
-                form.runOnUiThread(
-                    () -> image.setImageBitmap(bitmap)
-                );
+                form.runOnUiThread(() -> {
+                    image.setImageBitmap(bitmap);
+                });
 
             } catch (Exception e) {
-                form.runOnUiThread(
-                    () -> ImageError(id, e.getMessage())
-                );
+                form.runOnUiThread(() -> {
+                    ImageError(id, e.getMessage());
+                });
 
             } finally {
                 if (connection != null) {
@@ -390,7 +423,8 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
         titles.remove(id);
         prices.remove(id);
         packs.remove(id);
-        favorites.remove(id);
+        hearts.remove(id);
+        images.remove(id);
         quantityLabels.remove(id);
         addButtons.remove(id);
         quantityRows.remove(id);
@@ -399,34 +433,29 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
     }
 
     @SimpleFunction(description = "Remove all product cards.")
-    public void ClearCards() {
-        if (gridParent != null) {
-            gridParent.removeAllViews();
+    public void ClearCards(HVArrangement parent) {
+        View view = parent.getView();
+
+        if (view instanceof ViewGroup) {
+            ((ViewGroup) view).removeAllViews();
         }
 
         cards.clear();
         titles.clear();
         prices.clear();
         packs.clear();
-        favorites.clear();
+        hearts.clear();
+        images.clear();
         quantityLabels.clear();
         addButtons.clear();
         quantityRows.clear();
         quantities.clear();
         favoriteStates.clear();
-
-        currentRow = null;
-        cardsInRow = 0;
     }
 
     @SimpleEvent(description = "Fires when a product card is created.")
     public void CardCreated(String id) {
         EventDispatcher.dispatchEvent(this, "CardCreated", id);
-    }
-
-    @SimpleEvent(description = "Fires when a product card is clicked.")
-    public void CardClicked(String id) {
-        EventDispatcher.dispatchEvent(this, "CardClicked", id);
     }
 
     @SimpleEvent(description = "Fires when Add to Cart is clicked.")
@@ -441,14 +470,14 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
         );
     }
 
-    @SimpleEvent(description = "Fires when favorite status changes.")
+    @SimpleEvent(description = "Fires when favorite changes.")
     public void FavoriteChanged(String id, boolean isFavorite) {
         EventDispatcher.dispatchEvent(
             this, "FavoriteChanged", id, isFavorite
         );
     }
 
-    @SimpleEvent(description = "Fires if image loading fails.")
+    @SimpleEvent(description = "Fires when image loading fails.")
     public void ImageError(String id, String message) {
         EventDispatcher.dispatchEvent(
             this, "ImageError", id, message
