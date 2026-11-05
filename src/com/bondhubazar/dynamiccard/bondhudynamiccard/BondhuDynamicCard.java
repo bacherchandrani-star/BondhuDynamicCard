@@ -27,6 +27,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.io.InputStream;
 import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.Locale;
 
 @Extension(
@@ -38,6 +39,7 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
     private final Form form;
 
     private final HashMap<String, View> cards = new HashMap<>();
+    private final HashMap<String, ViewGroup> cardParents = new HashMap<>();
     private final HashMap<String, TextView> titles = new HashMap<>();
     private final HashMap<String, TextView> prices = new HashMap<>();
     private final HashMap<String, TextView> packs = new HashMap<>();
@@ -47,9 +49,14 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
     private final HashMap<String, TextView> totals = new HashMap<>();
     private final HashMap<String, Button> addButtons = new HashMap<>();
     private final HashMap<String, LinearLayout> quantityRows = new HashMap<>();
+
     private final HashMap<String, Integer> quantities = new HashMap<>();
     private final HashMap<String, Double> unitPrices = new HashMap<>();
     private final HashMap<String, Boolean> favorites = new HashMap<>();
+    private final HashMap<String, Integer> imageRequests = new HashMap<>();
+
+    private final int GREEN = Color.rgb(20, 83, 45);
+    private final int LIGHT_GREEN = Color.rgb(232, 245, 233);
 
     public BondhuDynamicCard(ComponentContainer container) {
         super(container.$form());
@@ -61,18 +68,14 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
             .getDisplayMetrics().density + 0.5f);
     }
 
-    private GradientDrawable background(
-        int color, int radius
-    ) {
+    private GradientDrawable background(int color, int radius) {
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(color);
         bg.setCornerRadius(dp(radius));
         return bg;
     }
 
-    private TextView makeText(
-        String text, int size, int color
-    ) {
+    private TextView makeText(String text, int size, int color) {
         TextView view = new TextView(form);
         view.setText(text);
         view.setTextSize(size);
@@ -81,7 +84,10 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
     }
 
     private double parsePrice(String value) {
+        if (value == null) return 0;
+
         String cleaned = value.replaceAll("[^0-9.]", "");
+
         try {
             return Double.parseDouble(cleaned);
         } catch (Exception e) {
@@ -89,13 +95,22 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
         }
     }
 
+    private double getTotal(String id) {
+        Integer qty = quantities.get(id);
+        Double price = unitPrices.get(id);
+
+        if (qty == null || price == null) return 0;
+
+        return qty * price;
+    }
+
     private void updateTotal(String id) {
         TextView total = totals.get(id);
-        if (total == null) return;
+        Integer qty = quantities.get(id);
 
-        int qty = quantities.get(id);
-        double price = unitPrices.get(id);
-        double amount = qty * price;
+        if (total == null || qty == null) return;
+
+        double amount = getTotal(id);
 
         total.setText(
             "Total Price: ₹" +
@@ -107,9 +122,7 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
         );
     }
 
-    @SimpleFunction(
-        description = "Create a vertical product card."
-    )
+    @SimpleFunction(description = "Create a vertical product card.")
     public void CreateCard(
         HVArrangement parent,
         String id,
@@ -117,13 +130,14 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
         String pack,
         String price
     ) {
+        if (parent == null || id == null || id.trim().isEmpty()) return;
+
         View parentView = parent.getView();
 
         if (!(parentView instanceof ViewGroup)) return;
 
         ViewGroup container = (ViewGroup) parentView;
 
-        // Parent must be an inner VerticalArrangement.
         if (container instanceof LinearLayout) {
             ((LinearLayout) container)
                 .setOrientation(LinearLayout.VERTICAL);
@@ -140,7 +154,7 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
         card.setBackground(background(Color.WHITE, 18));
         card.setElevation(dp(4));
 
-        // Top section
+        // Top Section
         LinearLayout top = new LinearLayout(form);
         top.setOrientation(LinearLayout.HORIZONTAL);
         top.setGravity(Gravity.CENTER_VERTICAL);
@@ -153,27 +167,25 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
         ));
         image.setClipToOutline(true);
 
-        LinearLayout.LayoutParams imageParams =
-            new LinearLayout.LayoutParams(dp(112), dp(112));
+        top.addView(image,
+            new LinearLayout.LayoutParams(dp(112), dp(112))
+        );
 
-        top.addView(image, imageParams);
-
-        // Details
+        // Product Details
         LinearLayout details = new LinearLayout(form);
         details.setOrientation(LinearLayout.VERTICAL);
         details.setGravity(Gravity.CENTER_VERTICAL);
         details.setPadding(dp(12), 0, 0, 0);
 
-        LinearLayout.LayoutParams detailsParams =
+        top.addView(details,
             new LinearLayout.LayoutParams(
                 0,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 1
-            );
+            )
+        );
 
-        top.addView(details, detailsParams);
-
-        // Name and Favorite
+        // Name and Heart
         LinearLayout nameRow = new LinearLayout(form);
         nameRow.setOrientation(LinearLayout.HORIZONTAL);
         nameRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -190,10 +202,10 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
             )
         );
 
-        TextView heart = makeText("♥", 23, Color.WHITE);
+        TextView heart = makeText("♡", 27, GREEN);
         heart.setGravity(Gravity.CENTER);
         heart.setBackground(background(
-            Color.rgb(20, 83, 45), 50
+            Color.rgb(232, 245, 233), 50
         ));
 
         nameRow.addView(heart,
@@ -204,26 +216,23 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
 
         // Original Price
         TextView priceText = makeText(
-            price, 23, Color.rgb(20, 110, 50)
+            price, 23, GREEN
         );
         priceText.setTypeface(null, Typeface.BOLD);
         priceText.setPadding(0, dp(5), 0, dp(4));
 
         details.addView(priceText);
 
-        // Pack
+        // Pack Size
         TextView packText = makeText(
             pack, 13, Color.rgb(35, 110, 60)
         );
-        packText.setPadding(
-            dp(9), dp(5), dp(9), dp(5)
-        );
+        packText.setPadding(dp(9), dp(5), dp(9), dp(5));
         packText.setBackground(background(
-            Color.rgb(225, 245, 232), 20
+            LIGHT_GREEN, 20
         ));
 
         details.addView(packText);
-
         card.addView(top);
 
         // Add to Cart
@@ -233,9 +242,7 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
         addButton.setTextColor(Color.WHITE);
         addButton.setAllCaps(false);
         addButton.setTypeface(null, Typeface.BOLD);
-        addButton.setBackground(background(
-            Color.rgb(20, 110, 50), 30
-        ));
+        addButton.setBackground(background(GREEN, 30));
 
         LinearLayout.LayoutParams buttonParams =
             new LinearLayout.LayoutParams(
@@ -246,7 +253,7 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
         buttonParams.setMargins(0, dp(12), 0, 0);
         card.addView(addButton, buttonParams);
 
-        // Quantity Row
+        // Quantity Controls
         LinearLayout qtyRow = new LinearLayout(form);
         qtyRow.setOrientation(LinearLayout.HORIZONTAL);
         qtyRow.setGravity(Gravity.CENTER);
@@ -256,35 +263,35 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
         minus.setText("−");
         minus.setTextSize(22);
         minus.setTextColor(Color.WHITE);
+        minus.setAllCaps(false);
         minus.setBackground(background(
             Color.rgb(190, 45, 45), 30
         ));
 
-        TextView qtyText = makeText("1", 21, Color.BLACK);
+        TextView qtyText = makeText("1", 21, GREEN);
         qtyText.setGravity(Gravity.CENTER);
-        qtyText.setBackground(background(
-            Color.rgb(225, 245, 230), 12
-        ));
+        qtyText.setBackground(background(LIGHT_GREEN, 12));
 
         Button plus = new Button(form);
         plus.setText("+");
         plus.setTextSize(22);
         plus.setTextColor(Color.WHITE);
-        plus.setBackground(background(
-            Color.rgb(20, 110, 50), 30
-        ));
+        plus.setAllCaps(false);
+        plus.setBackground(background(GREEN, 30));
 
-        LinearLayout.LayoutParams controlParams =
-            new LinearLayout.LayoutParams(0, dp(48), 1);
+        qtyRow.addView(minus,
+            new LinearLayout.LayoutParams(0, dp(48), 1)
+        );
 
         LinearLayout.LayoutParams numberParams =
             new LinearLayout.LayoutParams(0, dp(48), 2);
 
         numberParams.setMargins(dp(10), 0, dp(10), 0);
-
-        qtyRow.addView(minus, controlParams);
         qtyRow.addView(qtyText, numberParams);
-        qtyRow.addView(plus, controlParams);
+
+        qtyRow.addView(plus,
+            new LinearLayout.LayoutParams(0, dp(48), 1)
+        );
 
         LinearLayout.LayoutParams qtyParams =
             new LinearLayout.LayoutParams(
@@ -297,16 +304,13 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
 
         // Total Price
         TextView total = makeText(
-            "Total Price: ₹0.00", 17,
-            Color.rgb(20, 83, 45)
+            "Total Price: ₹0.00", 17, GREEN
         );
 
         total.setTypeface(null, Typeface.BOLD);
         total.setGravity(Gravity.CENTER_VERTICAL);
         total.setPadding(dp(10), dp(10), dp(10), dp(10));
-        total.setBackground(background(
-            Color.rgb(232, 245, 233), 12
-        ));
+        total.setBackground(background(LIGHT_GREEN, 12));
         total.setVisibility(View.GONE);
 
         LinearLayout.LayoutParams totalParams =
@@ -320,6 +324,7 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
 
         // Save References
         cards.put(id, card);
+        cardParents.put(id, container);
         titles.put(id, name);
         prices.put(id, priceText);
         packs.put(id, packText);
@@ -333,23 +338,24 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
         quantities.put(id, 0);
         unitPrices.put(id, parsePrice(price));
         favorites.put(id, false);
+        imageRequests.put(id, 0);
 
         // Favorite Click
         heart.setOnClickListener(v -> {
-            boolean selected = !favorites.get(id);
+            boolean selected = !Boolean.TRUE.equals(
+                favorites.get(id)
+            );
+
             favorites.put(id, selected);
 
             heart.setText(selected ? "♥" : "♡");
-            heart.setBackground(background(
-                selected
-                    ? Color.rgb(20, 83, 45)
-                    : Color.rgb(235, 245, 237),
-                50
-            ));
             heart.setTextColor(
-                selected ? Color.WHITE :
-                    Color.rgb(20, 83, 45)
+                selected ? Color.WHITE : GREEN
             );
+
+            heart.setBackground(background(
+                selected ? GREEN : LIGHT_GREEN, 50
+            ));
 
             FavoriteChanged(id, selected);
         });
@@ -366,14 +372,13 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
 
             AddToCartClicked(id);
             QuantityChanged(id, 1);
-            TotalPriceChanged(
-                id, unitPrices.get(id)
-            );
+            TotalPriceChanged(id, getTotal(id));
         });
 
-        // Plus
+        // Plus Button
         plus.setOnClickListener(v -> {
-            int qty = quantities.get(id) + 1;
+            Integer oldQty = quantities.get(id);
+            int qty = oldQty == null ? 1 : oldQty + 1;
 
             quantities.put(id, qty);
             qtyText.setText(String.valueOf(qty));
@@ -381,14 +386,13 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
             updateTotal(id);
 
             QuantityChanged(id, qty);
-            TotalPriceChanged(
-                id, qty * unitPrices.get(id)
-            );
+            TotalPriceChanged(id, getTotal(id));
         });
 
-        // Minus
+        // Minus Button
         minus.setOnClickListener(v -> {
-            int qty = quantities.get(id) - 1;
+            Integer oldQty = quantities.get(id);
+            int qty = oldQty == null ? 0 : oldQty - 1;
 
             if (qty <= 0) {
                 qty = 0;
@@ -402,12 +406,10 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
             updateTotal(id);
 
             QuantityChanged(id, qty);
-            TotalPriceChanged(
-                id, qty * unitPrices.get(id)
-            );
+            TotalPriceChanged(id, getTotal(id));
         });
 
-        // Add Card
+        // Add Card to Vertical Parent
         LinearLayout.LayoutParams cardParams =
             new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -423,29 +425,31 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
         CardCreated(id);
     }
 
-    @SimpleFunction(
-        description = "Set product image using URL."
-    )
+    @SimpleFunction(description = "Set product image using URL.")
     public void SetImage(String id, String imageUrl) {
-        ImageView image = images.get(id);
-        if (image == null) return;
+        final ImageView image = images.get(id);
+
+        if (image == null || imageUrl == null) return;
+
+        Integer oldRequest = imageRequests.get(id);
+        final int request = (oldRequest == null ? 0 : oldRequest) + 1;
+        imageRequests.put(id, request);
 
         new Thread(() -> {
             HttpURLConnection connection = null;
-            Bitmap bitmap = null;
 
             try {
                 URL url = new URL(imageUrl);
-                connection = (HttpURLConnection)
-                    url.openConnection();
+                connection = (HttpURLConnection) url.openConnection();
 
                 connection.setConnectTimeout(10000);
                 connection.setReadTimeout(10000);
                 connection.setDoInput(true);
                 connection.connect();
 
-                try (InputStream input =
-                    connection.getInputStream()) {
+                Bitmap bitmap;
+
+                try (InputStream input = connection.getInputStream()) {
                     bitmap = BitmapFactory.decodeStream(input);
                 }
 
@@ -456,7 +460,8 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
                 final Bitmap result = bitmap;
 
                 form.runOnUiThread(() -> {
-                    if (images.get(id) == image) {
+                    if (images.get(id) == image &&
+                        Integer.valueOf(request).equals(imageRequests.get(id))) {
                         image.setImageBitmap(result);
                     }
                 });
@@ -465,8 +470,10 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
                 final String error = e.getMessage();
 
                 form.runOnUiThread(() -> {
-                    ImageError(id, error == null
-                        ? "Image loading failed" : error);
+                    if (Integer.valueOf(request).equals(imageRequests.get(id))) {
+                        ImageError(id, error == null
+                            ? "Image loading failed" : error);
+                    }
                 });
 
             } finally {
@@ -479,31 +486,26 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
 
     @SimpleFunction(description = "Change product name.")
     public void SetTitle(String id, String title) {
-        if (titles.containsKey(id)) {
-            titles.get(id).setText(title);
-        }
+        TextView view = titles.get(id);
+        if (view != null) view.setText(title);
     }
 
-    @SimpleFunction(description = "Change original price.")
+    @SimpleFunction(description = "Change original unit price.")
     public void SetPrice(String id, String price) {
-        if (!prices.containsKey(id)) return;
+        TextView view = prices.get(id);
+        if (view == null) return;
 
-        prices.get(id).setText(price);
+        view.setText(price);
         unitPrices.put(id, parsePrice(price));
 
         updateTotal(id);
-
-        TotalPriceChanged(
-            id,
-            quantities.get(id) * unitPrices.get(id)
-        );
+        TotalPriceChanged(id, getTotal(id));
     }
 
-    @SimpleFunction(description = "Change product pack.")
+    @SimpleFunction(description = "Change product pack size.")
     public void SetPack(String id, String pack) {
-        if (packs.containsKey(id)) {
-            packs.get(id).setText(pack);
-        }
+        TextView view = packs.get(id);
+        if (view != null) view.setText(pack);
     }
 
     @SimpleFunction(description = "Get current quantity.")
@@ -512,29 +514,26 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
         return qty == null ? 0 : qty;
     }
 
-    @SimpleFunction(description = "Get total product price.")
+    @SimpleFunction(description = "Get total price.")
     public double GetTotalPrice(String id) {
-        if (!quantities.containsKey(id)) return 0;
-
-        return quantities.get(id) * unitPrices.get(id);
+        return getTotal(id);
     }
 
     @SimpleFunction(description = "Check favorite status.")
     public boolean IsFavorite(String id) {
-        Boolean value = favorites.get(id);
-        return value != null && value;
+        return Boolean.TRUE.equals(favorites.get(id));
     }
 
     @SimpleFunction(description = "Remove a product card.")
     public void RemoveCard(String id) {
         View card = cards.get(id);
 
-        if (card != null &&
-            card.getParent() instanceof ViewGroup) {
+        if (card != null && card.getParent() instanceof ViewGroup) {
             ((ViewGroup) card.getParent()).removeView(card);
         }
 
         cards.remove(id);
+        cardParents.remove(id);
         titles.remove(id);
         prices.remove(id);
         packs.remove(id);
@@ -547,30 +546,39 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
         quantities.remove(id);
         unitPrices.remove(id);
         favorites.remove(id);
+        imageRequests.remove(id);
     }
 
-    @SimpleFunction(description = "Remove all created cards.")
+    @SimpleFunction(description = "Remove all cards from the given parent.")
     public void ClearCards(HVArrangement parent) {
-        View view = parent.getView();
+        if (parent == null) return;
 
-        for (String id :
-            new java.util.ArrayList<>(cards.keySet())) {
+        View parentView = parent.getView();
+        if (!(parentView instanceof ViewGroup)) return;
+
+        ViewGroup target = (ViewGroup) parentView;
+
+        ArrayList<String> ids = new ArrayList<>();
+
+        for (String id : cards.keySet()) {
+            if (cardParents.get(id) == target) {
+                ids.add(id);
+            }
+        }
+
+        for (String id : ids) {
             RemoveCard(id);
         }
     }
 
     @SimpleEvent(description = "Card created.")
     public void CardCreated(String id) {
-        EventDispatcher.dispatchEvent(
-            this, "CardCreated", id
-        );
+        EventDispatcher.dispatchEvent(this, "CardCreated", id);
     }
 
     @SimpleEvent(description = "Add to cart clicked.")
     public void AddToCartClicked(String id) {
-        EventDispatcher.dispatchEvent(
-            this, "AddToCartClicked", id
-        );
+        EventDispatcher.dispatchEvent(this, "AddToCartClicked", id);
     }
 
     @SimpleEvent(description = "Quantity changed.")
@@ -581,18 +589,14 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
     }
 
     @SimpleEvent(description = "Favorite changed.")
-    public void FavoriteChanged(
-        String id, boolean isFavorite
-    ) {
+    public void FavoriteChanged(String id, boolean isFavorite) {
         EventDispatcher.dispatchEvent(
             this, "FavoriteChanged", id, isFavorite
         );
     }
 
     @SimpleEvent(description = "Total price changed.")
-    public void TotalPriceChanged(
-        String id, double totalPrice
-    ) {
+    public void TotalPriceChanged(String id, double totalPrice) {
         EventDispatcher.dispatchEvent(
             this, "TotalPriceChanged", id, totalPrice
         );
