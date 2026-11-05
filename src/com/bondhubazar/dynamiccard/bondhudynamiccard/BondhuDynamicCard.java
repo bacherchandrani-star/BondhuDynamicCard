@@ -132,16 +132,24 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
     ) {
         if (parent == null || id == null || id.trim().isEmpty()) return;
 
-        View parentView = parent.getView();
+        
+View parentView = parent.getView();
+if (!(parentView instanceof ViewGroup)) return;
 
-        if (!(parentView instanceof ViewGroup)) return;
+ViewGroup outerContainer = (ViewGroup) parentView;
 
-        ViewGroup container = (ViewGroup) parentView;
+if (outerContainer.getChildCount() == 0) return;
 
-        if (container instanceof LinearLayout) {
-            ((LinearLayout) container)
-                .setOrientation(LinearLayout.VERTICAL);
-        }
+View contentView = outerContainer.getChildAt(0);
+
+if (!(contentView instanceof ViewGroup)) return;
+
+ViewGroup container = (ViewGroup) contentView;
+
+if (container instanceof LinearLayout) {
+    ((LinearLayout) container)
+        .setOrientation(LinearLayout.VERTICAL);
+}
 
         if (cards.containsKey(id)) {
             RemoveCard(id);
