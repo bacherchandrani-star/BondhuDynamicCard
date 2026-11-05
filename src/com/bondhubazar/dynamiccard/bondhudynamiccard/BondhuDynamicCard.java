@@ -420,7 +420,11 @@ public class BondhuDynamicCard extends AndroidNonvisibleComponent {
             dp(6), dp(7), dp(6), dp(7)
         );
 
-        container.addView(card, cardParams);
+        container.addView(
+    card,
+    container.getChildCount(),
+    cardParams
+);
 
         CardCreated(id);
     }
