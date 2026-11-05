@@ -568,7 +568,15 @@ if (container instanceof LinearLayout) {
         View parentView = parent.getView();
         if (!(parentView instanceof ViewGroup)) return;
 
-        ViewGroup target = (ViewGroup) parentView;
+        ViewGroup outer = (ViewGroup) parentView;
+
+if (outer.getChildCount() == 0) return;
+
+View child = outer.getChildAt(0);
+
+if (!(child instanceof ViewGroup)) return;
+
+ViewGroup target = (ViewGroup) child;
 
         ArrayList<String> ids = new ArrayList<>();
 
